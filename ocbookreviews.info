@@ -1,0 +1,10 @@
+name = bookreviews
+description = Importer boggnasker bookreviews
+package = vBulletin to Drupal
+core = 7.x
+dependencies[] = bookreviewscontent
+; Information added by drupal.org packaging script on 2013-10-25
+version = "7.x-1.1+7-dev"
+core = "7.x"
+project = "vbtodrupal"
+datestamp = "1382709965"

@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the BookReviewsContent feature.
+ */
+
+include_once 'bookreviewscontent.features.inc';

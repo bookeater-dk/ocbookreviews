@@ -1,0 +1,188 @@
+<?php
+
+/* 
+    Incase we need todo something on importing forum.
+ */
+
+/**
+ * Implementation of hook_vbtodrupal_operations().
+
+function ocbookreviews_vbtodrupal_operations() {
+  return array(
+    array('vbimportapi_import', array('bookreview_nodes')),
+  );
+}
+function ocbookreviews_bookreview_nodes_import(&$context) {
+ 
+} */
+/*
+ * Custom
+ */
+define('VBIMPORTAPI_ADD_TO_IDS_salt',2000);
+function ocbookreviews_menu()
+{
+    
+     $items['admin/ocbookreviews/import'] = array(
+      'page callback' => 'Import_bookreviews',
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('access content'),
+    );
+    return $items;
+}
+function Import_bookreviews()
+{
+    set_time_limit(0);
+    SetupImportDb();
+    //Retrive all the book reports
+    $Result = Database::getConnection('default', 'vb')->select('vbbrbook','books')->fields('books')->execute()->fetchAll();
+    create_needed_node_reference_fields();
+    //CreateBookReviewNodes($Result);
+}
+function create_needed_node_reference_fields()
+{
+    $field_name = 'field_test_reference';
+ 
+  // Make sure the field doesn't already exist.
+  if (!field_info_field($field_name)) {
+    $field = array(
+       'field_name' => $field_name,
+       'type' => 'entityreference',
+       'cardinality' => 1,
+       'settings' => array(
+         'target_type' => 'node',
+         'handler_settings' => array('target_bundles' => array('bookreviews')),
+       ),
+     );
+     field_create_field($field);
+
+     $instance = array(
+       'field_name' => $field_name,
+       'entity_type' => 'node',
+       'bundle' => 'forums',
+       'label' => 'Test Reference',
+       'widget' => array(
+         'type' => 'inline_entity_form_single',
+       ),
+       'settings' => array(
+         'target_type' => 'node',
+         'handler_settings' => array('target_bundles' => array('bookreviews')),
+       ),
+     );
+     field_create_instance($instance);
+  }
+}
+function CreateBookReviewNodes($Result)
+{
+    
+    $Drupal_Imagesdir = drupal_realpath(file_default_scheme() . '://');
+    foreach($Result as $br)
+    {
+         $entity_type = 'node';
+         $entity = entity_create($entity_type, array('type' => 'bookreviews'));
+         $entity->nid = $br->bookid + VBIMPORTAPI_ADD_TO_IDS_salt;
+         $entity->uid = GetBookReviewCreator($br->threadid+ VBIMPORTAPI_ADD_TO_IDS);
+         $entity->bundle = "bookreviews";
+        
+         try
+         {
+             $wrapper = entity_metadata_wrapper('node', $entity);
+              $Image = ExtractImageFile($br->filename);
+              if($Image != null)
+              {
+                $wrapper->field_brimage->set((array)$Image);  
+              }
+              
+              $wrapper->title->set(GetBookReviewTitle($br->threadid + VBIMPORTAPI_ADD_TO_IDS));
+              $wrapper->field_udgivelses_r->set(!empty($br->year) ? $br->year : '2009');
+              $wrapper->field_isbn->set(!empty($br->isbn) ? $br->isbn : "");
+              $wrapper->field_forlag->set(!empty($br->publisher) ? $br->publisher : "");
+              $wrapper->field_serie->set(!empty($br->series) ? $br->series : "");
+              $wrapper->field_samlet_bed_mmelse->set(!empty($br->rating1) ? $br->rating1 : 0);
+              $wrapper->field_kort_fortalt->set(!empty($br->shortdesc) ? $br->shortdesc : "");
+              $wrapper->field_forfatter->set(!empty($br->author) ? $br->author : "");
+              $wrapper->field_forfatter_hjemmeside->set(!empty($br->authorurl) ? $br->authorurl : "");
+              
+         } catch (Exception $ex) {
+             watchdog('ocbookreviews', "Failed to spawn bookreview node [".$br->bookid."]");
+         }
+         //Only Save bookreview if there is a valid reference to it.
+         if(CreateReviewThreadsRelation($br->threadid+ VBIMPORTAPI_ADD_TO_IDS,$entity->nid))
+         {
+            $wrapper->save();
+         }
+         
+    }
+}
+function ExtractImageFile($Path)
+{
+    if(empty($Path))
+    {
+        return null;
+    }
+    $Vbforum_Imagesdir = "/var/www/sites/boggnasker.dk/vbforum/";
+    $image_url = null;
+    if (strpos($Path, './') !== false) {
+        $image_url .= $Vbforum_Imagesdir . $Path;
+    }
+    else
+    {
+        $image_url = $Path;
+    }
+    $file_content = file_get_contents($image_url);
+    if($file_content === false)
+    {
+        return null;
+    }
+    $file = file_save_data($file_content, file_default_scheme().'://bookcovers/'.basename($image_url));
+    $file->status = 1;
+    $file->display = 1;
+    return $file;
+}
+function GetBookReviewTitle($thread_id)
+{
+    $n = node_load($thread_id);
+    return isset($n->title) ? $n->title : "";
+}
+function GetBookReviewCreator($thread_id)
+{
+    $n = node_load($thread_id);
+    return isset($n->uid) ? $n->uid : "";
+}
+Function CreateReviewThreadsRelation($threadid,$bookreviewid)
+{
+    $entity = node_load($threadid);
+    if($entity == false)
+    {
+        //No thread found.
+        return false;
+    }
+    try{
+        $wrapper = entity_metadata_wrapper('node', $entity);
+        if($entity->type == "poll")
+        {
+            $wrapper->field_poll_bookreview->set($bookreviewid);
+        }
+        else
+        {
+           $wrapper->field_bookreview->set($bookreviewid);
+        }
+
+    } catch (Exception $ex) {
+       watchdog('ocbookreviews', "Failed to create bookreview relation [" . $bookreviewid ."]");
+       return false;
+    }
+   
+    $wrapper->save();
+     return true;
+}
+function SetupImportDb()
+{
+    $database_info = array(
+        'host' => 'localhost', 
+        'database' => 'hw6005_vb',
+        'username' => 'vbimport', 
+        'password' => 'tobias1987', 
+        'driver' => 'mysql',
+      );
+    Database::addConnectionInfo('vb', 'default', $database_info);
+}
