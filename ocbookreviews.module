@@ -40,8 +40,8 @@ function Import_bookreviews()
 }
 function create_needed_node_reference_fields()
 {
-    $field_name = 'field_test_reference';
- 
+    $field_name = 'field_bookreview';
+   
   // Make sure the field doesn't already exist.
   if (!field_info_field($field_name)) {
     $field = array(
@@ -58,14 +58,42 @@ function create_needed_node_reference_fields()
      $instance = array(
        'field_name' => $field_name,
        'entity_type' => 'node',
-       'bundle' => 'forums',
-       'label' => 'Test Reference',
+       'bundle' => 'forum',
+       'label' => 'bookreview',
        'widget' => array(
          'type' => 'inline_entity_form_single',
        ),
        'settings' => array(
          'target_type' => 'node',
          'handler_settings' => array('target_bundles' => array('bookreviews')),
+       ),
+     );
+     field_create_instance($instance);
+  }
+  $field_name = 'field_poll_bookreview';
+  if (!field_info_field($field_name)) {
+    $field = array(
+       'field_name' => $field_name,
+       'type' => 'entityreference',
+       'cardinality' => 1,
+       'settings' => array(
+         'target_type' => 'node',
+         'handler_settings' => array('target_bundles' => array('bookreviews')),
+       ),
+     );
+     field_create_field($field);
+
+     $instance = array(
+       'field_name' => $field_name,
+       'entity_type' => 'node',
+       'bundle' => 'forum',
+       'label' => 'poll bookreview',
+       'widget' => array(
+         'type' => 'inline_entity_form_single',
+       ),
+       'settings' => array(
+         'target_type' => 'node',
+         'handler_settings' => array('target_bundles' => array('poll')),
        ),
      );
      field_create_instance($instance);
@@ -82,7 +110,18 @@ function CreateBookReviewNodes($Result)
          $entity->nid = $br->bookid + VBIMPORTAPI_ADD_TO_IDS_salt;
          $entity->uid = GetBookReviewCreator($br->threadid+ VBIMPORTAPI_ADD_TO_IDS);
          $entity->bundle = "bookreviews";
-        
+         /*
+          * Setup star ratings
+          */
+         $entity->field_samlet_bed_mmelse = [];
+         $entity->field_samlet_bed_mmelse['und'][0]['value'] = !empty($br->rating1) ? $br->rating1 : null;
+                  $entity->field_sprog = [];
+         $entity->field_sprog['und'][0]['value'] = !empty($br->rating2) ? $br->rating2 : null;
+                  $entity->field_handling = [];
+         $entity->field_handling['und'][0]['value'] = !empty($br->rating3) ? $br->rating3 : null;
+                  $entity->field_underholdningsv_rdi = [];
+         $entity->field_underholdningsv_rdi['und'][0]['value'] = !empty($br->rating4) ? $br->rating4 : null;
+         
          try
          {
              $wrapper = entity_metadata_wrapper('node', $entity);
@@ -97,20 +136,31 @@ function CreateBookReviewNodes($Result)
               $wrapper->field_isbn->set(!empty($br->isbn) ? $br->isbn : "");
               $wrapper->field_forlag->set(!empty($br->publisher) ? $br->publisher : "");
               $wrapper->field_serie->set(!empty($br->series) ? $br->series : "");
-              $wrapper->field_samlet_bed_mmelse->set(!empty($br->rating1) ? $br->rating1 : 0);
+              
               $wrapper->field_kort_fortalt->set(!empty($br->shortdesc) ? $br->shortdesc : "");
               $wrapper->field_forfatter->set(!empty($br->author) ? $br->author : "");
-              $wrapper->field_forfatter_hjemmeside->set(!empty($br->authorurl) ? $br->authorurl : "");
+              
+              
+              if(!empty($br->authorurl) && $br->authorurl != "")
+              {
+                $wrapper->field_forfatter_hjemmeside->title->set(!empty($br->authorurl) && $br->authorurl != "" ? $br->authorurl : null);
+                $wrapper->field_forfatter_hjemmeside->url->set(!empty($br->authorurl) && $br->authorurl != "" ? $br->authorurl : null); 
+              }
+
+              
+              //$wrapper->field_forfatter_hjemmeside->set(!empty($br->authorurl) ? $br->authorurl : "");
               
          } catch (Exception $ex) {
              watchdog('ocbookreviews', "Failed to spawn bookreview node [".$br->bookid."]");
+             echo "fail";
+             exit(1);
          }
          //Only Save bookreview if there is a valid reference to it.
          if(CreateReviewThreadsRelation($br->threadid+ VBIMPORTAPI_ADD_TO_IDS,$entity->nid))
          {
             $wrapper->save();
          }
-         
+         //exit(1);
     }
 }
 function ExtractImageFile($Path)
