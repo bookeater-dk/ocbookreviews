@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Bookeater frontpage feature.
+ */
+
+include_once 'bookeater_frontpage.features.inc';

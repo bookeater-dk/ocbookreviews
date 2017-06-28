@@ -35,8 +35,10 @@ function Import_bookreviews()
     SetupImportDb();
     //Retrive all the book reports
     $Result = Database::getConnection('default', 'vb')->select('vbbrbook','books')->fields('books')->execute()->fetchAll();
-    create_needed_node_reference_fields();
-    //CreateBookReviewNodes($Result);
+     create_needed_node_reference_fields();
+    CreateBookReviewNodes($Result);
+    echo "success";
+    
 }
 function create_needed_node_reference_fields()
 {
@@ -143,8 +145,18 @@ function CreateBookReviewNodes($Result)
               
               if(!empty($br->authorurl) && $br->authorurl != "")
               {
-                $wrapper->field_forfatter_hjemmeside->title->set(!empty($br->authorurl) && $br->authorurl != "" ? $br->authorurl : null);
-                $wrapper->field_forfatter_hjemmeside->url->set(!empty($br->authorurl) && $br->authorurl != "" ? $br->authorurl : null); 
+                    $tmp = $br->authorurl;
+                    $url = reset(explode(' ',$tmp));
+                    $url = str_replace('.html','',$url);
+                    try
+                    {
+                        $wrapper->field_forfatter_hjemmeside->title->set($url);
+                        $wrapper->field_forfatter_hjemmeside->url->set($url);
+                    
+                    }catch (Exception $ex) {
+                        
+                    }
+                  
               }
 
               
@@ -178,15 +190,21 @@ function ExtractImageFile($Path)
     {
         $image_url = $Path;
     }
-    $file_content = file_get_contents($image_url);
-    if($file_content === false)
-    {
+    try{
+        $file_content = file_get_contents($image_url);
+        if($file_content === false)
+        {
+            return null;
+        }
+        
+        $file = file_save_data($file_content, file_default_scheme().'://bookcovers/'.basename($image_url));
+        $file->status = 1;
+        $file->display = 1;
+        return $file;
+    } catch (Exception $ex) {
         return null;
     }
-    $file = file_save_data($file_content, file_default_scheme().'://bookcovers/'.basename($image_url));
-    $file->status = 1;
-    $file->display = 1;
-    return $file;
+    
 }
 function GetBookReviewTitle($thread_id)
 {
