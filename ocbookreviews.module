@@ -181,7 +181,7 @@ function ExtractImageFile($Path)
     {
         return null;
     }
-    $Vbforum_Imagesdir = "/data/disk/o2/static/bookeater.dk/vbforum/attachments";
+    $Vbforum_Imagesdir = "/data/disk/o2/static/bookeater.dk/vbforum/";
     $image_url = null;
     if (strpos($Path, './') !== false) {
         $image_url .= $Vbforum_Imagesdir . $Path;
